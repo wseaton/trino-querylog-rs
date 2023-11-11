@@ -10,9 +10,5 @@ crate_type = ["cdylib"]
 
 [dependencies]
 jni = "0.21.0"                                                         # Use the latest version of the JNI crate
-jnix = "0.5.1"
-lazy_static = "1.4.0"
-log = "*"
 tracing = "0.1.40"
-tracing-appender = "0.2.2"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }

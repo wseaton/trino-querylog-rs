@@ -1,18 +1,15 @@
 use std::collections::HashMap;
 
+use jni::objects::JString;
 use jni::sys::{jlong, JNI_TRUE};
-
-use jni::objects::{JMap, JString};
-use tracing_subscriber;
-use tracing_subscriber::{fmt, EnvFilter};
-
 use jni::{objects::JClass, objects::JObject, JNIEnv};
+
 pub struct QueryLogListener {
     track_event_created: bool,
-    config: HashMap<String, String>,
-    // Logger setup will be assumed to be elsewhere in the code
+    _config: HashMap<String, String>,
 }
 
+/// This is the Rust side of the `Plugin` class that is loaded by the Trino Plugin manager.
 impl QueryLogListener {
     pub fn new(track_event_created: bool, config: HashMap<String, String>) -> QueryLogListener {
         tracing::info!("QueryLogListener created");
@@ -21,7 +18,7 @@ impl QueryLogListener {
         });
         QueryLogListener {
             track_event_created,
-            config,
+            _config: config,
         }
     }
 
@@ -34,42 +31,6 @@ impl QueryLogListener {
     pub fn query_completed(&self, event: String) {
         tracing::info!("Query completed from rust: {}", event);
     }
-}
-
-fn jobject_to_hashmap(
-    env: &mut JNIEnv,
-    map_obj: JObject,
-) -> Result<HashMap<String, String>, jni::errors::Error> {
-    let entry_set = env
-        .call_method(map_obj, "entrySet", "()Ljava/util/Set;", &[])?
-        .l()?;
-    let iter = env
-        .call_method(entry_set, "iterator", "()Ljava/util/Iterator;", &[])?
-        .l()?;
-
-    let mut hash_map = HashMap::new();
-
-    while env.call_method(&iter, "hasNext", "()Z", &[])?.z()? == (JNI_TRUE == 1) {
-        let entry = env
-            .call_method(&iter, "next", "()Ljava/lang/Object;", &[])?
-            .l()?;
-        let key_obj = env
-            .call_method(&entry, "getKey", "()Ljava/lang/Object;", &[])?
-            .l()?;
-        let value_obj = env
-            .call_method(entry, "getValue", "()Ljava/lang/Object;", &[])?
-            .l()?;
-
-        let key: JString = JString::from(key_obj);
-        let value: JString = JString::from(value_obj);
-
-        let key_rust = env.get_string(&key)?.into();
-        let value_rust = env.get_string(&value)?.into();
-
-        hash_map.insert(key_rust, value_rust);
-    }
-
-    Ok(hash_map)
 }
 
 #[no_mangle]
@@ -110,51 +71,82 @@ pub extern "C" fn Java_com_github_trino_querylog_QueryLogPlugin_00024Companion_c
 #[no_mangle]
 pub extern "C" fn Java_com_github_trino_querylog_JavaEventListenerWrapper_rustQueryCreated(
     mut env: JNIEnv,
-    this: JClass,
-    rust_event_listener_ptr: i64, // jlong in JNI is mapped to i64 in Rust
+    _this: JClass,
+    rust_event_listener_ptr: jlong, // jlong in JNI is mapped to jlong in Rust
     query_created_event: JString,
 ) {
     tracing::info!("Rust query created");
-
     let event_listener = unsafe { &*(rust_event_listener_ptr as *mut QueryLogListener) };
-
-    // Convert the JString to a Rust String
     let event: String = env
         .get_string(&query_created_event)
         .expect("Couldn't get java string!")
         .into();
-
     event_listener.query_created(event);
 }
 
 #[no_mangle]
 pub extern "C" fn Java_com_github_trino_querylog_JavaEventListenerWrapper_rustQueryCompleted(
     mut env: JNIEnv,
-    this: JClass,
-    rust_event_listener_ptr: i64, // jlong in JNI is mapped to i64 in Rust
+    _this: JClass,
+    rust_event_listener_ptr: jlong, // jlong in JNI is mapped to jlong in Rust
     query_completed_event: JString,
 ) {
     tracing::info!("Rust query completed");
-
     let event_listener = unsafe { &*(rust_event_listener_ptr as *mut QueryLogListener) };
-
-    // Convert the JString to a Rust String
     let event: String = env
         .get_string(&query_completed_event)
         .expect("Couldn't get java string!")
         .into();
-
     event_listener.query_completed(event);
 }
 
-// Remember to provide a function that matches the signature for freeing the event listener
+// This is to facilitate freeing the memory allocated for the rust event listener,
+// basically allowing the Java GC to Drop
 #[no_mangle]
 pub extern "C" fn Java_com_github_trino_querylog_JavaEventListenerWrapper_freeRustEventListener(
     _env: JNIEnv,
     _class: JClass,
-    rust_event_listener_ptr: i64,
+    rust_event_listener_ptr: jlong,
 ) {
     unsafe {
         let _ = Box::from_raw(rust_event_listener_ptr as *mut QueryLogListener);
     }
+}
+
+// FIXME: this doesn't currently work, and we need a way to generically convert
+// a Java Map<String, String> to a Rust HashMap<String, String> for config.
+fn jobject_to_hashmap(
+    env: &mut JNIEnv,
+    map_obj: JObject,
+) -> Result<HashMap<String, String>, jni::errors::Error> {
+    let entry_set = env
+        .call_method(map_obj, "entrySet", "()Ljava/util/Set;", &[])?
+        .l()?;
+    let iter = env
+        .call_method(entry_set, "iterator", "()Ljava/util/Iterator;", &[])?
+        .l()?;
+
+    let mut hash_map = HashMap::new();
+
+    while env.call_method(&iter, "hasNext", "()Z", &[])?.z()? == (JNI_TRUE == 1) {
+        let entry = env
+            .call_method(&iter, "next", "()Ljava/lang/Object;", &[])?
+            .l()?;
+        let key_obj = env
+            .call_method(&entry, "getKey", "()Ljava/lang/Object;", &[])?
+            .l()?;
+        let value_obj = env
+            .call_method(entry, "getValue", "()Ljava/lang/Object;", &[])?
+            .l()?;
+
+        let key: JString = JString::from(key_obj);
+        let value: JString = JString::from(value_obj);
+
+        let key_rust = env.get_string(&key)?.into();
+        let value_rust = env.get_string(&value)?.into();
+
+        hash_map.insert(key_rust, value_rust);
+    }
+
+    Ok(hash_map)
 }
