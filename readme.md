@@ -1,12 +1,17 @@
 # trino-querylog-rs
 
-PoC Trino Plugin to support log forwarding and analysis of query events, written in Kotlin + Rust using JNI.
+Trino Plugin to support log forwarding and analysis of query events, written in Kotlin + Rust using JNI.
 
 This project draws heavy inspiration from <https://github.com/rchukh/trino-querylog/tree/master> on the initial design.
 
 Why?
 
 To be able to get near real-time introspection into how queries are doing, including information on query plans to create things like alerts.
+
+Relevant Trino Docs:
+
+- <https://trino.io/docs/current/develop/event-listener.html>
+- <https://trino.io/docs/current/develop/spi-overview.html>
 
 ## Developing
 
@@ -28,5 +33,7 @@ Will do all of that, and also spin up a trino container for local testing.
 
 - [ ] Config passing
 - [ ] Log forwarding (Kafka maybe?)
+- [ ] Log configuration
+  - [ ] Seperate file? JSON? Levels?
 - [ ] Rust native types
 - [ ] Analysis or rules engine and dynamic dispatch of alerts
