@@ -31,9 +31,9 @@ Will do all of that, and also spin up a trino container for local testing.
 
 ### TODO
 
-- [ ] Config passing
-- [ ] Log forwarding (Kafka maybe?)
-- [ ] Log configuration
-  - [ ] Seperate file? JSON? Levels?
+- [x] Config passing
+- [x] Log forwarding (Kafka maybe?)
+- [x] Log configuration
+  - [x] Seperate file? JSON? Levels?
 - [ ] Rust native types
 - [ ] Analysis or rules engine and dynamic dispatch of alerts

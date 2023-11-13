@@ -6,4 +6,4 @@ build:
     podman build -t trino-querylog-rs .
 
 run: build
-    podman run -e RUST_BACKTRACE=1 -p 8080:8080 -it localhost/trino-querylog-rs:latest
+    podman run -e RUST_BACKTRACE=1 -e RUST_LOG=debug -p 8080:8080 -it localhost/trino-querylog-rs:latest

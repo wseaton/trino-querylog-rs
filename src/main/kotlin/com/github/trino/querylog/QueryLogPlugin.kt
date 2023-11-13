@@ -40,18 +40,20 @@ class QueryLogPlugin : Plugin {
         }
 
         // Declare the external function that will create a Rust event listener
-        external fun createRustEventListener(track_event_created: Boolean, config: Map<String, String>): Long
+        external fun createRustEventListener(config: String): Long
         private external fun initializeLogging()
     }
 
     override fun getEventListenerFactories(): Iterable<EventListenerFactory> {
-        logger.info("Getting EventListenerFactories")
+        logger.debug("Getting EventListenerFactories")
         return listOf(object : EventListenerFactory {
             override fun create(config: Map<String, String>): EventListener {
-                logger.info("Attempting to create a Rust EventListener")
+                logger.debug("Attempting to create a Rust EventListener")
                 try {
-                    val eventListenerPtr = createRustEventListener(true, config)
-                    logger.info("Rust EventListener created successfully")
+                    val configAsString = objectMapper.writeValueAsString(config)
+                    logger.debug("Config: $configAsString")
+                    val eventListenerPtr = createRustEventListener(configAsString)
+                    logger.debug("Rust EventListener created successfully")
                     return JavaEventListenerWrapper(eventListenerPtr)
                 } catch (e: Throwable) {
                     logger.error("Failed to create Rust EventListener", e)
@@ -60,7 +62,7 @@ class QueryLogPlugin : Plugin {
             }
 
             override fun getName(): String {
-                return "rust-event-listener"
+                return "rust-querylog-event-listener"
             }
         })
     }
@@ -83,7 +85,7 @@ class JavaEventListenerWrapper(private val rustEventListenerPtr: Long) : EventLi
     override fun queryCompleted(queryCompletedEvent: QueryCompletedEvent) {
         // Convert queryCompletedEvent to JSON or another string representation
         val eventAsString = convertEventToString(queryCompletedEvent)
-        rustQueryCreated(rustEventListenerPtr, eventAsString)
+        rustQueryCompleted(rustEventListenerPtr, eventAsString)
     }
 
     // Helper method to convert QueryCreatedEvent to a string format
